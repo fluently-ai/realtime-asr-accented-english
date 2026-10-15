@@ -152,3 +152,8 @@ Results are cached under `.cache/inference/<profile>/`, keyed by the audio's SHA
 profile (every request option, plus the streaming protocol for real-time runs), so reruns only
 call providers for missing clips. Without `--execute` a runner stops before making any paid call
 and reports how many are missing.
+
+## License
+
+The code is released under the [MIT License](LICENSE). Each provider's API and each open model
+keeps its own terms of use.
