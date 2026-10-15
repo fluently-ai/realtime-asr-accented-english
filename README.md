@@ -1,6 +1,7 @@
-# ASR benchmark: inference code
+# Real-Time Speech Recognition on Accented English: inference code
 
-The code that produced every transcript in our speech recognition benchmark: 16 offline
+The code that produced every transcript in our benchmark of real-time speech recognition on
+accented English: 16 offline
 profiles (file APIs and two open models) and 15 real-time profiles (streaming APIs). Every
 model ID and request option is pinned in [`inference/models.toml`](inference/models.toml). The
 benchmark audio and transcripts are not part of this repository.
