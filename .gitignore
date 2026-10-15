@@ -1,0 +1,15 @@
+.env
+.cache/
+__pycache__/
+*.pyc
+
+# Never commit audio, transcripts or model outputs.
+*.csv
+*.jsonl
+*.flac
+*.wav
+*.mp3
+*.m4a
+*.ogg
+*.opus
+*.webm

@@ -1,0 +1,546 @@
+schema_version = "asr-offline-models-v1"
+
+# The table key is the exact value accepted by `run.py --model`. Every request-affecting
+# option is included in the cache key.
+
+[models.scribe_v2]
+provider = "elevenlabs"
+adapter = "elevenlabs_file"
+model = "scribe_v2"
+api_key_env = "ELEVENLABS_API_KEY"
+cache_generation = "offline-2026-08-23-a"
+
+[models.scribe_v2.connection]
+endpoint = "https://api.elevenlabs.io/v1/speech-to-text"
+
+[models.scribe_v2.request]
+language_code = "en"
+tag_audio_events = true
+no_verbatim = false
+timestamps_granularity = "word"
+diarize = false
+webhook = false
+file_format = "other"
+enable_logging = false
+
+[models."nova-3"]
+provider = "deepgram"
+adapter = "deepgram_file"
+model = "nova-3"
+api_key_env = "DEEPGRAM_API_KEY"
+cache_generation = "offline-2026-08-23-a"
+
+[models."nova-3".connection]
+endpoint = "https://api.deepgram.com/v1/listen"
+
+[models."nova-3".request]
+language = "en"
+punctuate = false
+smart_format = false
+filler_words = true
+numerals = false
+measurements = false
+dictation = false
+profanity_filter = false
+paragraphs = false
+utterances = false
+mip_opt_out = true
+
+[models."universal-3-5-pro"]
+provider = "assemblyai"
+adapter = "assemblyai_file"
+model = "universal-3-5-pro"
+api_key_env = "ASSEMBLYAI_API_KEY"
+cache_generation = "offline-2026-08-23-a"
+
+[models."universal-3-5-pro".connection]
+api_base = "https://api.assemblyai.com"
+poll_interval_s = 1.0
+
+[models."universal-3-5-pro".request]
+language_code = "en"
+punctuate = false
+format_text = false
+disfluencies = true
+filter_profanity = false
+speaker_labels = false
+
+[models."ink-whisper"]
+provider = "cartesia"
+adapter = "cartesia_file"
+model = "ink-whisper"
+api_key_env = "CARTESIA_API_KEY"
+cache_generation = "offline-2026-08-23-a"
+
+[models."ink-whisper".connection]
+endpoint = "https://api.cartesia.ai/stt"
+api_version = "2026-03-01"
+
+[models."ink-whisper".request]
+language = "en"
+"timestamp_granularities[]" = ["word"]
+
+[models.gpt-transcribe]
+provider = "openai"
+adapter = "openai_file"
+model = "gpt-transcribe"
+api_key_env = "OPENAI_API_KEY"
+cache_generation = "offline-2026-08-23-a"
+
+[models.gpt-transcribe.connection]
+endpoint = "https://api.openai.com/v1/audio/transcriptions"
+
+[models.gpt-transcribe.request]
+language = "en"
+input_format = "wav_pcm_s16le"
+
+[models.chirp_3]
+provider = "google"
+adapter = "google_chirp3"
+model = "chirp_3"
+cache_generation = "offline-2026-08-23-a"
+
+[models.chirp_3.connection]
+location = "us"
+
+[models.chirp_3.request]
+language_code = "en-US"
+enable_automatic_punctuation = false
+
+[models."pulse-pro"]
+provider = "smallest"
+adapter = "smallest_file"
+model = "pulse-pro"
+api_key_env = "SMALLEST_API_KEY"
+cache_generation = "offline-2026-08-23-a"
+
+[models."pulse-pro".connection]
+endpoint = "https://api.smallest.ai/waves/v1/stt/"
+# The default account limit is 25 requests per minute; leave headroom for clock jitter.
+requests_per_minute = 24
+
+[models."pulse-pro".request]
+language = "en"
+
+[models."mai-transcribe-2"]
+provider = "microsoft"
+adapter = "microsoft_fast_file"
+model = "MAI-Transcribe-2"
+api_key_env = "AZURE_SPEECH_API_KEY"
+cache_generation = "offline-2026-09-16-a"
+
+[models."mai-transcribe-2".connection]
+endpoint_env = "AZURE_SPEECH_ENDPOINT"
+api_version = "2025-10-15"
+# Azure documents a 600 RPM default limit for fast transcription.
+requests_per_minute = 540
+
+[models."mai-transcribe-2".request]
+locales = ["en"]
+profanityFilterMode = "None"
+
+[models."mai-transcribe-2".request.enhancedMode]
+enabled = true
+
+[models."mai-transcribe-2".request.enhancedMode.modelOptions]
+transcribeStyle = "verbatim"
+timestamps = "none"
+
+[models."mai-transcribe-2".request.diarization]
+enabled = false
+
+[models."mai-transcribe-2".request.phraseList]
+phrases = []
+
+[models."parakeet-tdt-0.6b-v3"]
+provider = "nvidia"
+adapter = "nvidia_transformers"
+model = "nvidia/parakeet-tdt-0.6b-v3"
+cache_generation = "offline-2026-08-23-a"
+
+[models."parakeet-tdt-0.6b-v3".request]
+device = "auto"
+dtype = "float32"
+sampling_rate = 16000
+decode = "greedy"
+
+[models."qwen3-asr-1.7b"]
+provider = "qwen"
+adapter = "qwen_transformers"
+model = "Qwen/Qwen3-ASR-1.7B-hf"
+cache_generation = "offline-2026-08-23-a"
+
+[models."qwen3-asr-1.7b".request]
+device = "auto"
+dtype = "bfloat16"
+sampling_rate = 16000
+language = "English"
+max_new_tokens = 256
+do_sample = false
+
+[models."grok-voice-transcribe-2.0"]
+provider = "xai"
+adapter = "xai_file"
+model = "grok-voice-transcribe-2.0"
+api_key_env = "XAI_API_KEY"
+cache_generation = "offline-2026-10-13-a"
+
+[models."grok-voice-transcribe-2.0".connection]
+endpoint = "https://api.x.ai/v1/stt"
+
+[models."grok-voice-transcribe-2.0".request]
+language = "en"
+filler_words = true
+format = false
+diarize = false
+
+[models."muse-voice-transcribe-1.0"]
+provider = "meta"
+adapter = "meta_file"
+model = "muse-voice-transcribe-1.0"
+api_key_env = "META_API_KEY"
+cache_generation = "offline-2026-10-13-a"
+
+[models."muse-voice-transcribe-1.0".connection]
+endpoint = "https://api.meta.ai/v1/asr/transcribe"
+sample_rate_hz = 24000
+
+[models."muse-voice-transcribe-1.0".request]
+mode = "PUSH_TO_TALK"
+languageBias = ["English"]
+
+# Reson8 has no model parameter; the label records what was current when measured.
+[models."resonant-1"]
+provider = "reson8"
+adapter = "reson8_file"
+model = "resonant-1"
+api_key_env = "RESON8_API_KEY"
+cache_generation = "offline-2026-10-13-a"
+
+[models."resonant-1".connection]
+endpoint = "https://api.reson8.dev/v1/speech-to-text/prerecorded"
+
+[models."resonant-1".request]
+language = "en"
+filler_mode = "verbatim"
+diarize = false
+
+[models."gemini-3.5-transcribe"]
+provider = "google"
+adapter = "gemini_file"
+model = "gemini-3.5-transcribe"
+api_key_env = "GEMINI_API_KEY"
+cache_generation = "offline-2026-10-13-a"
+
+[models."gemini-3.5-transcribe".connection]
+api_base = "https://generativelanguage.googleapis.com/v1beta"
+
+[models."gemini-3.5-transcribe".request]
+languageCodes = ["en-US"]
+mode = "VERBATIM"
+
+[models."stt-async-v5"]
+provider = "soniox"
+adapter = "soniox_file"
+model = "stt-async-v5"
+api_key_env = "SONIOX_API_KEY"
+cache_generation = "offline-2026-10-13-a"
+
+[models."stt-async-v5".connection]
+api_base = "https://api.soniox.com"
+poll_interval_s = 1.0
+
+[models."stt-async-v5".request]
+language_hints = ["en"]
+language_hints_strict = true
+enable_speaker_diarization = false
+
+[models."voxtral-mini-2602"]
+provider = "mistral"
+adapter = "openai_file"
+model = "voxtral-mini-2602"
+api_key_env = "MISTRAL_API_KEY"
+cache_generation = "offline-2026-10-13-a"
+
+[models."voxtral-mini-2602".connection]
+endpoint = "https://api.mistral.ai/v1/audio/transcriptions"
+
+[models."voxtral-mini-2602".request]
+language = "en"
+temperature = 0
+input_format = "wav_pcm_s16le"
+
+# Realtime profiles: run with inference/run_realtime.py, which streams 16 kHz PCM at 1x.
+
+[models."nova-3-realtime"]
+provider = "deepgram"
+adapter = "deepgram_realtime"
+model = "nova-3"
+api_key_env = "DEEPGRAM_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."nova-3-realtime".connection]
+endpoint = "wss://api.deepgram.com/v1/listen"
+sample_rate_hz = 16000
+
+[models."nova-3-realtime".request]
+encoding = "linear16"
+sample_rate = 16000
+channels = 1
+language = "en"
+interim_results = true
+punctuate = false
+smart_format = false
+filler_words = true
+numerals = false
+mip_opt_out = true
+
+[models.scribe_v2_realtime]
+provider = "elevenlabs"
+adapter = "elevenlabs_realtime"
+model = "scribe_v2_realtime"
+api_key_env = "ELEVENLABS_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models.scribe_v2_realtime.connection]
+endpoint = "wss://api.elevenlabs.io/v1/speech-to-text/realtime"
+sample_rate_hz = 16000
+
+[models.scribe_v2_realtime.request]
+audio_format = "pcm_16000"
+language_code = "en"
+commit_strategy = "manual"
+no_verbatim = false
+enable_logging = false
+
+[models."gpt-live-transcribe"]
+provider = "openai"
+adapter = "openai_realtime"
+model = "gpt-live-transcribe"
+api_key_env = "OPENAI_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."gpt-live-transcribe".connection]
+endpoint = "wss://api.openai.com/v1/realtime?intent=transcription"
+# Realtime PCM input is 24 kHz only.
+sample_rate_hz = 24000
+
+# Fields of the session's audio.input.transcription object.
+[models."gpt-live-transcribe".request]
+languages = ["en"]
+
+[models."grok-voice-transcribe-2.0-realtime"]
+provider = "xai"
+adapter = "xai_realtime"
+model = "grok-voice-transcribe-2.0"
+api_key_env = "XAI_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."grok-voice-transcribe-2.0-realtime".connection]
+endpoint = "wss://api.x.ai/v1/stt"
+sample_rate_hz = 16000
+
+[models."grok-voice-transcribe-2.0-realtime".request]
+encoding = "pcm"
+sample_rate = 16000
+interim_results = true
+language = "en"
+filler_words = true
+format = false
+diarize = false
+
+[models."universal-3-5-pro-realtime"]
+provider = "assemblyai"
+adapter = "assemblyai_realtime"
+model = "universal-3-5-pro"
+api_key_env = "ASSEMBLYAI_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."universal-3-5-pro-realtime".connection]
+endpoint = "wss://streaming.assemblyai.com/v3/ws"
+sample_rate_hz = 16000
+# AssemblyAI caps new sessions per minute (5 on free accounts, 100+ auto-scaling on paid).
+sessions_per_minute = 90
+
+# Universal-3.5 Pro always returns formatted turns; there is no verbatim or punctuation switch.
+[models."universal-3-5-pro-realtime".request]
+encoding = "pcm_s16le"
+sample_rate = 16000
+mode = "max_accuracy"
+language_codes = '["en"]'
+speaker_labels = false
+
+[models."stt-rt-v5"]
+provider = "soniox"
+adapter = "soniox_realtime"
+model = "stt-rt-v5"
+api_key_env = "SONIOX_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."stt-rt-v5".connection]
+endpoint = "wss://stt-rt.soniox.com/transcribe-websocket"
+sample_rate_hz = 16000
+
+[models."stt-rt-v5".request]
+audio_format = "pcm_s16le"
+sample_rate = 16000
+num_channels = 1
+language_hints = ["en"]
+language_hints_strict = true
+enable_speaker_diarization = false
+enable_endpoint_detection = false
+
+# Ink 2 detects the language itself (en, fr, hi, ja, es); `language` is ink-whisper only.
+[models."ink-2-realtime"]
+provider = "cartesia"
+adapter = "cartesia_realtime"
+model = "ink-2"
+api_key_env = "CARTESIA_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."ink-2-realtime".connection]
+endpoint = "wss://api.cartesia.ai/stt/websocket"
+sample_rate_hz = 16000
+
+[models."ink-2-realtime".request]
+cartesia_version = "2026-08-14"
+encoding = "pcm_s16le"
+sample_rate = 16000
+
+[models."pulse-realtime"]
+provider = "smallest"
+adapter = "smallest_realtime"
+model = "pulse"
+api_key_env = "SMALLEST_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."pulse-realtime".connection]
+endpoint = "wss://api.smallest.ai/waves/v1/stt/live"
+sample_rate_hz = 16000
+
+[models."pulse-realtime".request]
+language = "en"
+encoding = "linear16"
+sample_rate = 16000
+format = false
+itn_normalize = false
+diarize = false
+
+# Reson8 has no model parameter and no punctuation switch; the label records what was current.
+[models."resonant-1-realtime"]
+provider = "reson8"
+adapter = "reson8_realtime"
+model = "resonant-1"
+api_key_env = "RESON8_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."resonant-1-realtime".connection]
+endpoint = "wss://api.reson8.dev/v1/speech-to-text/realtime"
+sample_rate_hz = 16000
+
+[models."resonant-1-realtime".request]
+encoding = "pcm_s16le"
+sample_rate = 16000
+channels = 1
+language = "en"
+filler_mode = "verbatim"
+include_interim = true
+diarize = false
+
+# The realtime model rejects `language` and `verbatim`; the streaming delay is the server default.
+[models."voxtral-mini-transcribe-realtime-2602"]
+provider = "mistral"
+adapter = "mistral_realtime"
+model = "voxtral-mini-transcribe-realtime-2602"
+api_key_env = "MISTRAL_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."voxtral-mini-transcribe-realtime-2602".connection]
+endpoint = "wss://api.mistral.ai/v1/audio/transcriptions/realtime"
+sample_rate_hz = 16000
+
+[models."voxtral-mini-transcribe-realtime-2602".request]
+
+# PUSH_TO_TALK keeps fillers; ENDPOINTING post-processes turns (drops fillers, adds punctuation).
+[models."muse-voice-transcribe-1.0-realtime"]
+provider = "meta"
+adapter = "meta_realtime"
+model = "muse-voice-transcribe-1.0"
+api_key_env = "META_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."muse-voice-transcribe-1.0-realtime".connection]
+endpoint = "wss://api.meta.ai/v1/asr/realtime"
+sample_rate_hz = 24000
+
+[models."muse-voice-transcribe-1.0-realtime".request]
+mode = "PUSH_TO_TALK"
+languageBias = ["English"]
+partialMode = "CUMULATIVE"
+emitAudioProgress = false
+
+[models."gemini-3.5-transcribe-live"]
+provider = "google"
+adapter = "gemini_realtime"
+model = "gemini-3.5-transcribe-live"
+api_key_env = "GEMINI_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."gemini-3.5-transcribe-live".connection]
+endpoint = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
+sample_rate_hz = 16000
+
+[models."gemini-3.5-transcribe-live".request]
+languageCodes = ["en-US"]
+mode = "VERBATIM"
+
+# Speech-to-Text V2 StreamingRecognize (gRPC) with Application Default Credentials.
+[models."chirp_3-realtime"]
+provider = "google"
+adapter = "google_chirp3_realtime"
+model = "chirp_3"
+cache_generation = "realtime-2026-10-14"
+
+[models."chirp_3-realtime".connection]
+endpoint = "us-speech.googleapis.com"
+location = "us"
+sample_rate_hz = 16000
+
+[models."chirp_3-realtime".request]
+language_code = "en-US"
+enable_automatic_punctuation = false
+interim_results = true
+
+[models."mai-transcribe-2-realtime"]
+provider = "microsoft"
+adapter = "microsoft_realtime"
+model = "MAI-Transcribe-2-Streaming"
+api_key_env = "AZURE_FOUNDRY_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."mai-transcribe-2-realtime".connection]
+# A Foundry deployment of MAI-Transcribe-2-Streaming (not offered in every region).
+endpoint_env = "AZURE_FOUNDRY_ENDPOINT"
+path = "/mai/v1/realtime"
+sample_rate_hz = 16000
+
+[models."mai-transcribe-2-realtime".request]
+language = "en"
+
+# Manual mode (no `turn_detection`): the endpoint commits the utterance.
+
+[models."nemotron-3-asr-streaming-realtime"]
+provider = "together"
+adapter = "together_realtime"
+model = "nvidia/nemotron-3-asr-streaming-0.6b"
+api_key_env = "TOGETHER_API_KEY"
+cache_generation = "realtime-2026-10-14"
+
+[models."nemotron-3-asr-streaming-realtime".connection]
+endpoint = "wss://api.together.ai/v1/realtime"
+sample_rate_hz = 16000
+
+[models."nemotron-3-asr-streaming-realtime".request]
+input_audio_format = "pcm_s16le_16000"
+language = "en"
+turn_detection = "none"
