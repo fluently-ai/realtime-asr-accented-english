@@ -112,10 +112,11 @@ provider = "smallest"
 adapter = "smallest_file"
 model = "pulse-pro"
 api_key_env = "SMALLEST_API_KEY"
-cache_generation = "offline-2026-08-23-a"
+cache_generation = "offline-2026-10-15-a"
 
 [models."pulse-pro".connection]
 endpoint = "https://api.smallest.ai/waves/v1/stt/"
+sample_rate_hz = 16000
 # The default account limit is 25 requests per minute; leave headroom for clock jitter.
 requests_per_minute = 24
 

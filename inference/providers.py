@@ -306,7 +306,10 @@ def _google(config, _path, audio, _key, timeout):
     return _json(response, config.provider)
 
 
-def _smallest(config, _path, audio, key, timeout):
+def _smallest(config, path, audio, key, timeout):
+    # Smallest asks for 16 kHz input ("downsample anything above 16 kHz"); at 48 kHz Pulse
+    # Pro can loop a phrase until its output cap.
+    wav = _wav_bytes(path, audio, sample_rate=config.connection["sample_rate_hz"])
     with _client(timeout) as client:
         response = client.post(
             config.connection["endpoint"],
@@ -315,7 +318,7 @@ def _smallest(config, _path, audio, key, timeout):
                 "Content-Type": "application/octet-stream",
             },
             params={"model": config.model, **config.request},
-            content=audio,
+            content=wav,
         )
     return _json(response, config.provider)
 

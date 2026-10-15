@@ -60,7 +60,8 @@ The 16 offline profiles:
 - Every API gets each clip once, whole. The request options (language hint, verbatim or
   formatting switches, diarization off) are in `models.toml`; `providers.py` shows how each
   request is built (raw file upload, multipart, or WAV conversion with `ffmpeg` where an API
-  requires a format or sample rate).
+  requires a format or sample rate). Two profiles get resampled audio because their providers
+  ask for it: `pulse-pro` 16 kHz mono and `muse-voice-transcribe-1.0` 24 kHz mono.
 - The two open models run locally with greedy decoding:
   `uv run --script inference/run_transformers.py ... --model parakeet-tdt-0.6b-v3`.
 - Failed requests are retried up to `--retries` times (default 3) with backoff: timeouts,
