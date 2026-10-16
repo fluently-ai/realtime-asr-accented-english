@@ -1,7 +1,6 @@
-schema_version = "asr-offline-models-v1"
-
-# The table key is the exact value accepted by `run.py --model`. Every request-affecting
-# option is included in the cache key.
+# Model profiles for run.py (offline) and run_realtime.py (realtime). The table key is the
+# exact value accepted by `--model`. Every request-affecting option is included in the
+# cache key.
 
 [models.scribe_v2]
 provider = "elevenlabs"
@@ -117,7 +116,7 @@ cache_generation = "offline-2026-10-15-a"
 [models."pulse-pro".connection]
 endpoint = "https://api.smallest.ai/waves/v1/stt/"
 sample_rate_hz = 16000
-# The default account limit is 25 requests per minute; leave headroom for clock jitter.
+# Smallest documents a default limit of 25 requests per minute; leave headroom for clock jitter.
 requests_per_minute = 24
 
 [models."pulse-pro".request]
@@ -271,7 +270,8 @@ language = "en"
 temperature = 0
 input_format = "wav_pcm_s16le"
 
-# Realtime profiles: run with inference/run_realtime.py, which streams 16 kHz PCM at 1x.
+# Realtime profiles: run with inference/run_realtime.py, which streams 16-bit PCM at 1x at
+# each profile's `sample_rate_hz` (16 kHz; 24 kHz for the OpenAI and Meta profiles).
 
 [models."nova-3-realtime"]
 provider = "deepgram"
@@ -528,8 +528,6 @@ sample_rate_hz = 16000
 [models."mai-transcribe-2-realtime".request]
 language = "en"
 
-# Manual mode (no `turn_detection`): the endpoint commits the utterance.
-
 [models."nemotron-3-asr-streaming-realtime"]
 provider = "together"
 adapter = "together_realtime"
@@ -544,6 +542,7 @@ sample_rate_hz = 16000
 [models."nemotron-3-asr-streaming-realtime".request]
 input_audio_format = "pcm_s16le_16000"
 language = "en"
+# Manual mode: the endpoint commits the utterance.
 turn_detection = "none"
 
 # Same protocol and options as universal-3-5-pro-realtime.

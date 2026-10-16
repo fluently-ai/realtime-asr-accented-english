@@ -11,14 +11,16 @@
 # ///
 """Stream clips to realtime ASR models at 1x speed; record transcripts and latency.
 
-The protocol follows AA-WER Streaming. Audio goes out in 100 ms chunks at real-time
-speed. Once the audio up to the clip's Silero VAD end of speech (`speech_end_s`, see
-speech_end.py) has been sent, the runner sends the model's endpoint request and keeps
-streaming the rest of the clip, then silence. The scored transcript is the text known at
-the first final transcript after that point: every final segment up to and including it.
+The protocol is adapted from Artificial Analysis's streaming methodology. Audio goes out
+in 100 ms chunks at real-time speed. Once the audio up to the clip's Silero VAD end of
+speech (`speech_end_s`, see speech_end.py) has been sent, the runner sends the model's
+endpoint request, which starts the latency timer (as in AA), and keeps streaming the rest
+of the clip, then silence. The scored transcript is the text known at the first final
+transcript after that point: every final segment up to and including it. Differences from
+AA: 100 ms chunks (AA: 20 ms) and up to 15 s wait for a final after the endpoint (AA: 2 s,
+then it falls back to partials).
 A stream without any final transcript is retried; if every attempt ends that way, the
-empty transcript stands.
-Output rows follow run.py, so score.py scores them unchanged.
+empty transcript stands. Output rows follow run.py's format.
 """
 
 from __future__ import annotations
@@ -82,7 +84,15 @@ def main() -> int:
     parser.add_argument("--retries", type=int, default=3)
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args()
+    if args.limit is not None and args.limit < 1:
+        parser.error("--limit must be positive")
+    if len(set(args.model)) != len(args.model):
+        parser.error("--model values must be unique")
+    if args.workers < 1 or args.retries < 1:
+        parser.error("workers and retries must be positive")
     for path in args.env_file:
+        if not path.is_file():
+            parser.error(f"env file not found: {path}")
         from dotenv import load_dotenv
 
         load_dotenv(path, override=False)
@@ -133,7 +143,12 @@ async def run(
         for item in inputs:
             path = cache_file(cache_dir, config, item.audio_sha256)
             cached = load_cache(path, config, item.audio_sha256)
-            if cached is None:
+            # speech_end_s is not in the cache key: a result for another value is a miss.
+            speech_end_s = float(item.fields["speech_end_s"])
+            if (
+                cached is None
+                or abs(cached["raw"]["timing"]["speech_end_s"] - speech_end_s) > 1e-6
+            ):
                 jobs.append((item, config, path))
             else:
                 results[item.audio_key, config.name] = row(
@@ -141,9 +156,12 @@ async def run(
                 )
     if jobs and not execute:
         raise SystemExit(f"{len(jobs)} uncached streams; pass --execute")
-    for config in keyed:
+    for _item, config, _path in jobs:
         if config.api_key_env and not os.environ.get(config.api_key_env):
             raise SystemExit(f"missing {config.api_key_env}")
+        endpoint_env = config.connection.get("endpoint_env")
+        if isinstance(endpoint_env, str) and not os.environ.get(endpoint_env):
+            raise SystemExit(f"missing {endpoint_env}")
     limits = {config.name: asyncio.Semaphore(workers) for config in keyed}
     done = 0
 
@@ -216,7 +234,9 @@ async def stream_clip(item: Input, config: ModelConfig, retries: int) -> dict[st
             )
             # A session that never finalizes anything usually failed like a dropped
             # connection, so retry it; silent clips keep their empty last attempt.
-            if attempt < retries and not any(kind == "final" for kind, *_ in stream.events):
+            if attempt < retries and not any(
+                kind == "final" for kind, *_ in stream.events
+            ):
                 raise RuntimeError("stream ended without a final transcript")
             break
         except Exception:

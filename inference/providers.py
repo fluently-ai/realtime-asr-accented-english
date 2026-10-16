@@ -307,8 +307,7 @@ def _google(config, _path, audio, _key, timeout):
 
 
 def _smallest(config, path, audio, key, timeout):
-    # Smallest asks for 16 kHz input ("downsample anything above 16 kHz"); at 48 kHz Pulse
-    # Pro can loop a phrase until its output cap.
+    # Smallest asks for 16 kHz input: "downsample anything above 16 kHz".
     wav = _wav_bytes(path, audio, sample_rate=config.connection["sample_rate_hz"])
     with _client(timeout) as client:
         response = client.post(
@@ -612,7 +611,7 @@ def _google_access_token() -> tuple[str, str | None]:
             if not _GOOGLE_CREDENTIALS.valid:
                 _GOOGLE_CREDENTIALS.refresh(Request())
             token = _GOOGLE_CREDENTIALS.token
-        except Exception:
+        except Exception:  # noqa: BLE001 - fall back to the gcloud CLI
             process = subprocess.run(
                 ["gcloud", "auth", "print-access-token"],
                 check=False,

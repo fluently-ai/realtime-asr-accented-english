@@ -1,4 +1,6 @@
-"""Realtime ASR adapters. Each streams one clip through a provider's websocket."""
+"""Realtime ASR adapters. Each streams one clip per session: over a WebSocket, or gRPC for
+Chirp and the Speech SDK for Azure.
+"""
 
 from __future__ import annotations
 
@@ -162,7 +164,6 @@ async def _deepgram(config, key, stream: Stream) -> None:
                 return
             text = data["channel"]["alternatives"][0]["transcript"]
             (stream.final if data.get("is_final") else stream.partial)(text)
-            return
 
         await drive(
             ws,
@@ -461,9 +462,8 @@ async def _mistral(config, key, stream: Stream) -> None:
     async with websockets.connect(
         url, additional_headers={"Authorization": f"Bearer {key}"}
     ) as ws:
-        created = json.loads(
-            await ws.recv()
-        )  # like the SDK, configure only once the session exists
+        # Like the SDK, configure only once the session exists.
+        created = json.loads(await ws.recv())
         if created.get("type") != "session.created":
             raise RuntimeError(f"mistral session failed: {created}")
         audio_format = {"encoding": "pcm_s16le", "sample_rate": stream.rate}
@@ -553,9 +553,8 @@ async def _meta(config, key, stream: Stream) -> None:
             async for message in ws:
                 yield message
             if ended:
-                await (
-                    asyncio.Future()
-                )  # keep the receiver open while drive plays out the tail
+                # Keep the receiver open while drive plays out the tail.
+                await asyncio.Future()
 
         await drive(
             messages(), stream, audio=audio, handle=handle, endpoint=endpoint, drain_s=0

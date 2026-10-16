@@ -10,7 +10,7 @@
 #   "transformers==5.14.0",
 # ]
 # ///
-"""Run local Transformers ASR models through the standard offline probe."""
+"""Run the open models (Parakeet, Qwen3-ASR) locally with Transformers; same CLI as run.py."""
 
 import os
 

@@ -3,12 +3,13 @@
 # dependencies = [
 #   "numpy==2.2.6",
 #   "silero-vad==6.2.1",
+#   "torch==2.13.0",
 # ]
 # ///
 """Add each clip's Silero VAD end of speech to an input CSV for the realtime runner.
 
-Realtime latency is measured from this point: the runner sends the provider's
-endpoint request once the audio up to `speech_end_s` has been streamed.
+The realtime runner sends the provider's endpoint request once the audio up to
+`speech_end_s` has been streamed; latency is timed from that request.
 """
 
 from __future__ import annotations
@@ -22,11 +23,17 @@ import numpy as np
 import torch
 from silero_vad import get_speech_timestamps, load_silero_vad
 
+try:
+    from .run import resolve_audio
+except ImportError:  # direct `uv run --script inference/speech_end.py`
+    from run import resolve_audio
+
 RATE = 16000
 SETTINGS = {
     "threshold": 0.5,
     "min_speech_duration_ms": 50,
     "min_silence_duration_ms": 100,
+    "speech_pad_ms": 30,  # Silero's default, set explicitly
 }
 
 
@@ -55,7 +62,7 @@ def decode(path: Path) -> np.ndarray:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
-    parser.add_argument("--audio-root", type=Path, required=True)
+    parser.add_argument("--audio-root", type=Path, action="append", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     with args.input.open(newline="", encoding="utf-8") as source:
@@ -65,7 +72,7 @@ def main() -> int:
     torch.set_num_threads(1)
     model = load_silero_vad(onnx=False)
     for row in rows:
-        audio = decode(args.audio_root / row["audio_key"])
+        audio = decode(resolve_audio(row["audio_key"], args.audio_root))
         segments = get_speech_timestamps(
             torch.from_numpy(audio.copy()), model, **SETTINGS
         )

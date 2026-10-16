@@ -3,8 +3,9 @@
 The code that produced every transcript in our benchmark of real-time speech recognition on
 accented English: 16 offline profiles (file APIs and two open models) and 20 real-time profiles
 (streaming APIs). Every model ID and request option is pinned in
-[`inference/models.toml`](inference/models.toml). The benchmark audio and transcripts are not
-part of this repository.
+[`inference/models.toml`](inference/models.toml). Results and methodology are in the
+[report](https://getfluently.app/research/asr). The benchmark audio and transcripts, text
+normalization and WER scoring are not part of this repository.
 
 ```text
 inference/
@@ -66,20 +67,29 @@ The 16 offline profiles:
   ask for it: `pulse-pro` 16 kHz mono and `muse-voice-transcribe-1.0` 24 kHz mono.
 - The two open models run locally with greedy decoding:
   `uv run --script inference/run_transformers.py ... --model parakeet-tdt-0.6b-v3`.
-- Failed requests are retried up to `--retries` times (default 3) with backoff: timeouts,
-  transport errors, and HTTP 408, 409, 425, 429 and 5xx. Profiles with a provider rate limit
-  carry `requests_per_minute` in `models.toml`, and the runner paces requests to it.
+- Requests that fail with a timeout, a transport error, or HTTP 408, 409, 425, 429 or 5xx are
+  retried with backoff; each request is attempted up to `--retries` times (default 3). Profiles
+  with a provider rate limit carry `requests_per_minute` in `models.toml`, and the runner paces
+  requests to it.
 - Concurrency (`--workers`) does not change offline outputs. We used 16–48 workers, fewer where a
   provider limits concurrent jobs.
 
 ## Real-time runs
 
-Real-time runs follow the AA-WER Streaming protocol of
-[Artificial Analysis](https://artificialanalysis.ai/methodology/speech-to-text).
+Real-time runs follow a protocol adapted from Artificial Analysis's
+[streaming methodology](https://artificialanalysis.ai/methodology/speech-to-text). The
+differences:
+
+- 100 ms audio chunks instead of 20 ms.
+- After the endpoint, the runner waits up to 15 s for a final transcript; Artificial Analysis
+  waits 2 s and then falls back to partials.
+- Several providers keep their default endpointing, while Artificial Analysis configures
+  endpointing so that only the forced endpoint finalizes.
 
 **1. Find the end of speech.** `speech_end.py` runs Silero VAD (`silero-vad==6.2.1`, 16 kHz,
-threshold 0.5, minimum speech 50 ms, minimum silence 100 ms) and adds two columns: `duration_s`
-and `speech_end_s`, the end of the last speech segment (the clip end if no speech is found).
+threshold 0.5, minimum speech 50 ms, minimum silence 100 ms, `speech_pad_ms` 30) and adds two
+columns: `duration_s` and `speech_end_s`, the end of the last speech segment (the clip end if no
+speech is found). Like the runners, it accepts several `--audio-root` directories.
 
 ```bash
 uv run --script inference/speech_end.py \
@@ -99,17 +109,19 @@ uv run --script inference/run_realtime.py \
   `muse-voice-transcribe-1.0-realtime`). The runner sends
   100 ms chunks at 1x speed: a chunk goes out once its last sample would have been spoken.
 - **Endpoint.** Right after the chunk that completes `speech_end_s`, the runner sends the
-  provider's endpoint (finalize) request, then keeps streaming the rest of the clip and then
-  silence, until the first final transcript after the endpoint arrives or 15 s pass. Then it
-  closes the session and keeps reading for up to 5 s.
+  provider's endpoint (finalize) request and streams the rest of the clip. After the clip it
+  streams silence until the first final transcript after the endpoint arrives or 15 s have
+  passed since the endpoint. Then it closes the session and keeps reading for up to 5 s, except
+  for `muse-voice-transcribe-1.0-realtime`, whose session closes itself after `endStream`.
 - **Scored text.** Every final segment up to and including the first final after the endpoint.
   Later finals are recorded but not scored.
-- **Timing.** `time_to_final_s` and `time_to_first_partial_s` run from the endpoint request.
-  `endpoint_at_s` and `speech_end_s` are stored too: to time from the VAD end of speech, as
-  Artificial Analysis does, add `endpoint_at_s - speech_end_s` (at most one chunk, 100 ms).
-- **Retries.** Connection errors, provider errors and timeouts (audio length + 45 s) are
-  retried up to 3 times. A session that ends without any final transcript is also retried; if
-  every attempt ends that way, the empty transcript stands (for example on silent clips).
+- **Timing.** `time_to_final_s` and `time_to_first_partial_s` start when the endpoint request
+  is sent, which is when Artificial Analysis starts its timer. `endpoint_at_s` and
+  `speech_end_s` are stored too.
+- **Retries.** A session that fails (connection or provider error, or a timeout at the audio
+  length plus 45 s) or ends without any final transcript is retried with backoff; each clip is
+  attempted up to `--retries` times (default 3). If every attempt ends without a final, the
+  empty transcript stands (for example on silent clips).
 - **Events.** The cache keeps every partial and final with its arrival time, so other cut-offs
   can be computed later without streaming again.
 
@@ -139,7 +151,7 @@ Endpoint and close messages per profile (see `realtime_providers.py`):
 | `gpt-realtime-whisper` | `input_audio_buffer.commit` (no server VAD) | close socket |
 
 Concurrent sessions per profile in our run (all 15 profiles streamed at once from one 16-vCPU
-cloud machine in the US; the client's scheduling delay stayed under 5 ms at p99):
+cloud machine in the US):
 
 | Sessions | Profiles |
 |---|---|
@@ -157,15 +169,17 @@ machine, three earlier profiles rerun on 300 clips matched the first run within 
 
 ## Output
 
-Both runners write one JSONL row per clip and profile: `audio_key`, `provider`, `model`, `status`,
-`error`, `text`, `cache_hit`, and the untouched input columns under `input`. Real-time rows add
-`realtime` with `speech_end_s`, `endpoint_at_s`, `final_after_endpoint`, `time_to_final_s` and
-`time_to_first_partial_s`.
+Both runners write one JSONL row per clip and profile: `audio_key`, `provider`, `model` (the
+profile name), `status`, `error`, `text`, `cache_hit`, and the untouched input columns under
+`input`. Successful real-time rows add `realtime` with `speech_end_s`, `endpoint_at_s`,
+`final_after_endpoint`, `time_to_final_s` and `time_to_first_partial_s`; error rows have no
+`realtime` field.
 
-Results are cached under `.cache/inference/<profile>/`, keyed by the audio's SHA-256 and the full
-profile (every request option, plus the streaming protocol for real-time runs), so reruns only
-call providers for missing clips. Without `--execute` a runner stops before making any paid call
-and reports how many are missing.
+Results are cached under `.cache/inference/<profile>/` (set another directory with
+`--cache-dir`), keyed by the audio's SHA-256 and the full profile (every request option, plus
+the streaming protocol for real-time runs), so reruns only call providers for missing clips. A
+cached real-time result whose `speech_end_s` differs from the input's is streamed again.
+Without `--execute` a runner stops before making any paid call and reports how many are missing.
 
 ## License
 

@@ -18,12 +18,11 @@ import os
 import sys
 import tempfile
 import time
+import tomllib
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-import tomllib
 
 try:
     from .providers import (
@@ -99,6 +98,9 @@ def main() -> int:
         selected = [configs[name] for name in args.model]
     except KeyError as error:
         parser.error(f"unknown model: {error.args[0]}")
+    for config in selected:
+        if config.adapter.endswith("_realtime"):
+            parser.error(f"{config.name} is a realtime model; use run_realtime.py")
     rows = read_inputs(args.input, args.audio_root, limit=args.limit)
     results = run(
         rows,
