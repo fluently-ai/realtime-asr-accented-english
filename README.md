@@ -1,14 +1,14 @@
 # Real-Time Speech Recognition on Accented English: inference code
 
 The code that produced every transcript in our benchmark of real-time speech recognition on
-accented English: 16 offline profiles (file APIs and two open models) and 15 real-time profiles
+accented English: 16 offline profiles (file APIs and two open models) and 19 real-time profiles
 (streaming APIs). Every model ID and request option is pinned in
 [`inference/models.toml`](inference/models.toml). The benchmark audio and transcripts are not
 part of this repository.
 
 ```text
 inference/
-├── models.toml            # all 31 profiles: model IDs, endpoints, request options
+├── models.toml            # all 35 profiles: model IDs, endpoints, request options
 ├── run.py                 # offline runner (file APIs)
 ├── providers.py           # offline adapters, one per API
 ├── run_transformers.py    # offline runner for the open models (Parakeet, Qwen3-ASR)
@@ -28,7 +28,8 @@ Copy `inference/.env.example` to a private `.env` and fill in the keys for the p
 want; pass it with `--env-file`. Keys are read only from the environment and are never written to
 outputs or the cache. Google Speech-to-Text V2 (`chirp_3`, `chirp_3-realtime`) authenticates with
 Application Default Credentials (`gcloud auth application-default login`) and needs
-`GOOGLE_CLOUD_PROJECT`.
+`GOOGLE_CLOUD_PROJECT`. `azure-stt-realtime` uses Microsoft's Speech SDK, which on Linux needs
+glibc 2.29+ and OpenSSL 3.
 
 ## Input
 
@@ -130,6 +131,10 @@ Endpoint and close messages per profile (see `realtime_providers.py`):
 | `chirp_3-realtime` | none; the API finalizes on its own endpointing | half-close the stream |
 | `mai-transcribe-2-realtime` | `input_audio_buffer.commit` (no server VAD) | close socket |
 | `nemotron-3-asr-streaming-realtime` | `input_audio_buffer.commit` (no server VAD) | close socket |
+| `universal-3-6-pro-realtime` | `ForceEndpoint` | `Terminate` |
+| `flux-general-en-realtime` | `ForceEndTurn` (`eot_threshold = 1.0`: Flux's own end-of-turn is off) | `CloseStream` |
+| `linden-1-realtime` | `ForceEndOfUtterance` at the audio sent so far (external turn detection) | `EndOfStream` |
+| `azure-stt-realtime` | `PushAudioInputStream.commit()` (Speech SDK, `setfeature=forcecommit`) | close the push stream |
 
 Concurrent sessions per profile in our run (all 15 profiles streamed at once from one 16-vCPU
 cloud machine in the US; the client's scheduling delay stayed under 5 ms at p99):
@@ -141,6 +146,12 @@ cloud machine in the US; the client's scheduling delay stayed under 5 ms at p99)
 | 24 | `scribe_v2_realtime`, `universal-3-5-pro-realtime` (also capped at 90 new sessions per minute) |
 | 16–18 | `ink-2-realtime`, `gemini-3.5-transcribe-live`, `nemotron-3-asr-streaming-realtime`, `resonant-1-realtime` (18) |
 | 8–10 | `stt-rt-v5` (10), `voxtral-mini-transcribe-realtime-2602`, `chirp_3-realtime` |
+
+Four profiles were added later and streamed together from a second 16-vCPU cloud machine in the
+US: `flux-general-en-realtime` (48 sessions), `azure-stt-realtime` (32),
+`universal-3-6-pro-realtime` (24, 90 new sessions per minute) and `linden-1-realtime`. On that
+machine, three earlier profiles rerun on 300 clips matched the first run within 0.1 WER points and
+25 ms of median time to final.
 
 ## Output
 

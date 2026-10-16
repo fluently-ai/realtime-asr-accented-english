@@ -1,6 +1,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
+#   "azure-cognitiveservices-speech==1.52.0",
 #   "httpx==0.28.1",
 #   "google-auth[requests]==2.56.3",
 #   "google-cloud-speech==2.41.0",

@@ -755,6 +755,189 @@ async def _together(config, key, stream: Stream) -> None:
         )
 
 
+async def _deepgram_flux(config, key, stream: Stream) -> None:
+    url = f"{config.connection['endpoint']}?model={config.model}&{_query(config)}"
+    async with websockets.connect(
+        url, additional_headers={"Authorization": f"Token {key}"}
+    ) as ws:
+
+        def handle(message):
+            data = json.loads(message)
+            if data.get("type") == "Error":
+                raise RuntimeError(
+                    f"Deepgram Flux error {data.get('code')}: {data.get('description')}"
+                )
+            if data.get("type") == "TurnInfo":
+                # Each TurnInfo carries the whole turn so far; EndOfTurn closes it.
+                (stream.final if data["event"] == "EndOfTurn" else stream.partial)(
+                    data["transcript"]
+                )
+
+        # eot_threshold=1.0 leaves turn endings to ForceEndTurn (plus the eot_timeout_ms
+        # silence backstop). CloseStream does not end the open turn.
+        await drive(
+            ws,
+            stream,
+            audio=ws.send,
+            handle=handle,
+            endpoint=lambda: ws.send(json.dumps({"type": "ForceEndTurn"})),
+            close=lambda: ws.send(json.dumps({"type": "CloseStream"})),
+        )
+
+
+async def _speechmatics(config, key, stream: Stream) -> None:
+    headers = {"Authorization": f"Bearer {key}"}
+    async with websockets.connect(
+        config.connection["endpoint"], additional_headers=headers
+    ) as ws:
+        start = {
+            "message": "StartRecognition",
+            "audio_format": {
+                "type": "raw",
+                "encoding": "pcm_s16le",
+                "sample_rate": stream.rate,
+            },
+            "transcription_config": {"model": config.model, **config.request},
+            # ForceEndOfUtterance works only in external mode, where nothing else ends a turn.
+            "turn_config": {"turn_detection_mode": "external"},
+        }
+        await ws.send(json.dumps(start))
+        while (data := json.loads(await ws.recv()))["message"] != "RecognitionStarted":
+            if data["message"] == "Error":
+                raise RuntimeError(f"Speechmatics {data['type']}: {data['reason']}")
+        sent = chunks = 0  # audio bytes and AddAudio messages so far
+        segments: list[str] = []  # final segments of the open turn
+
+        def handle(message):
+            data = json.loads(message)
+            kind = data["message"]
+            # A turn can close several segments; EndOfTurn comes after the last one.
+            if kind == "AddPartialSegment":
+                stream.partial(" ".join([*segments, data["segment"]["transcript"]]))
+            elif kind == "AddSegment":
+                segments.append(data["segment"]["transcript"])
+            elif kind == "EndOfTurn":
+                stream.final(" ".join(segments))
+                segments.clear()
+            elif kind == "Error":
+                raise RuntimeError(f"Speechmatics {data['type']}: {data['reason']}")
+            return False if kind == "EndOfTranscript" else None
+
+        async def audio(chunk):
+            nonlocal sent, chunks
+            sent, chunks = sent + len(chunk), chunks + 1
+            await ws.send(chunk)
+
+        def endpoint():
+            # Cut the turn at the audio sent so far, not where the message lands.
+            seconds = sent / (2 * stream.rate)
+            return ws.send(
+                json.dumps({"message": "ForceEndOfUtterance", "timestamp": seconds})
+            )
+
+        await drive(
+            ws,
+            stream,
+            audio=audio,
+            handle=handle,
+            endpoint=endpoint,
+            close=lambda: ws.send(
+                json.dumps({"message": "EndOfStream", "last_seq_no": chunks})
+            ),
+        )
+
+
+async def _azure_speech(config, key, stream: Stream) -> None:
+    # Speech SDK continuous recognition from a push stream. The SDK runs on its own
+    # threads; results reach the loop through a queue. PushAudioInputStream.commit (SDK
+    # 1.52, preview, needs setfeature=forcecommit) finalizes the open segment at the
+    # endpoint and keeps the stream open. The service's silence segmentation stays on.
+    import azure.cognitiveservices.speech as speechsdk
+
+    request = config.request
+    speech_config = speechsdk.SpeechConfig(
+        subscription=key, endpoint=os.environ[config.connection["endpoint_env"]]
+    )
+    speech_config.speech_recognition_language = request["language"]
+    speech_config.set_profanity(speechsdk.ProfanityOption[request["profanity"]])
+    speech_config.set_service_property(
+        "setfeature",
+        request["setfeature"],
+        speechsdk.ServicePropertyChannel.UriQueryParameter,
+    )
+    audio_format = speechsdk.audio.AudioStreamFormat(
+        samples_per_second=stream.rate, bits_per_sample=16, channels=1
+    )
+    push = speechsdk.audio.PushAudioInputStream(stream_format=audio_format)
+    recognizer = speechsdk.SpeechRecognizer(
+        speech_config=speech_config,
+        audio_config=speechsdk.audio.AudioConfig(stream=push),
+    )
+    loop = asyncio.get_running_loop()
+    results: asyncio.Queue = asyncio.Queue()
+
+    def put(result) -> None:
+        # A result reads all its fields on creation, so it can cross threads.
+        loop.call_soon_threadsafe(results.put_nowait, result)
+
+    for signal in (recognizer.recognizing, recognizer.recognized, recognizer.canceled):
+        signal.connect(lambda event: put(event.result))
+    connection = speechsdk.Connection.from_recognizer(recognizer)
+    connection.connected.connect(lambda _: put(None))
+
+    def handle(result):
+        reason = None if result is None else result.reason
+        if reason == speechsdk.ResultReason.RecognizingSpeech:
+            stream.partial(result.text)
+        elif reason == speechsdk.ResultReason.Canceled:
+            details = result.cancellation_details
+            if details.reason == speechsdk.CancellationReason.Error:
+                raise RuntimeError(
+                    f"Azure STT {details.code.name}: {details.error_details}"
+                )
+            return False  # EndOfStream: the session is over after `close`
+        elif reason == speechsdk.ResultReason.RecognizedSpeech or (
+            result is not None and result.commit_token
+        ):
+            # A NoMatch result acknowledges a commit whose segment has no speech.
+            stream.final(result.text)
+        return None
+
+    async def messages():
+        while True:
+            yield await results.get()
+
+    async def audio(chunk):
+        push.write(chunk)
+
+    async def endpoint():
+        if not push.commit():
+            raise RuntimeError("Azure STT rejected the commit")
+
+    async def close():
+        push.close()  # end of audio: the service ends the session
+
+    try:
+        # Connect before the clock starts, as the websocket adapters do.
+        connection.open(True)
+        handle(await results.get())  # None once connected; raises on failure
+        await asyncio.to_thread(
+            lambda: recognizer.start_continuous_recognition_async().get()
+        )
+        await drive(
+            messages(),
+            stream,
+            audio=audio,
+            handle=handle,
+            endpoint=endpoint,
+            close=close,
+        )
+    finally:
+        await asyncio.to_thread(
+            lambda: recognizer.stop_continuous_recognition_async().get()
+        )
+
+
 ADAPTERS: dict[str, Callable[..., Awaitable[None]]] = {
     "deepgram_realtime": _deepgram,
     "elevenlabs_realtime": _elevenlabs,
@@ -771,4 +954,7 @@ ADAPTERS: dict[str, Callable[..., Awaitable[None]]] = {
     "google_chirp3_realtime": _chirp,
     "microsoft_realtime": _microsoft,
     "together_realtime": _together,
+    "deepgram_flux_realtime": _deepgram_flux,
+    "speechmatics_realtime": _speechmatics,
+    "azure_speech_realtime": _azure_speech,
 }

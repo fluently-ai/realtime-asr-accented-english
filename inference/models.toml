@@ -545,3 +545,89 @@ sample_rate_hz = 16000
 input_audio_format = "pcm_s16le_16000"
 language = "en"
 turn_detection = "none"
+
+# Same protocol and options as universal-3-5-pro-realtime.
+[models."universal-3-6-pro-realtime"]
+provider = "assemblyai"
+adapter = "assemblyai_realtime"
+model = "universal-3-6-pro"
+api_key_env = "ASSEMBLYAI_API_KEY"
+cache_generation = "realtime-2026-10-16-a"
+
+[models."universal-3-6-pro-realtime".connection]
+endpoint = "wss://streaming.assemblyai.com/v3/ws"
+sample_rate_hz = 16000
+# AssemblyAI caps new sessions per minute (5 on free accounts, 100+ auto-scaling on paid).
+sessions_per_minute = 90
+
+# Universal-3.6 Pro always returns formatted turns; there is no verbatim or punctuation switch.
+[models."universal-3-6-pro-realtime".request]
+encoding = "pcm_s16le"
+sample_rate = 16000
+mode = "max_accuracy"
+language_codes = '["en"]'
+speaker_labels = false
+
+# Flux is served only on /v2/listen. eot_threshold = 1.0 turns off Flux's own end-of-turn
+# decision, so the endpoint's ForceEndTurn ends the turn; eot_timeout_ms keeps its 5 s
+# silence backstop. Fillers are always transcribed; there is no punctuation or language
+# switch (flux-general-en is English-only and rejects `language`).
+[models."flux-general-en-realtime"]
+provider = "deepgram"
+adapter = "deepgram_flux_realtime"
+model = "flux-general-en"
+api_key_env = "DEEPGRAM_API_KEY"
+cache_generation = "realtime-2026-10-16-a"
+
+[models."flux-general-en-realtime".connection]
+endpoint = "wss://api.deepgram.com/v2/listen"
+sample_rate_hz = 16000
+
+[models."flux-general-en-realtime".request]
+encoding = "linear16"
+sample_rate = 16000
+eot_threshold = 1.0
+numerals = false
+mip_opt_out = true
+
+# Agent STT (Linden 1) on the US1 region. The adapter starts the session with
+# turn_detection_mode "external": only the endpoint's ForceEndOfUtterance ends a turn.
+# Segments come back punctuated and cased; Agent STT has no punctuation switch.
+[models."linden-1-realtime"]
+provider = "speechmatics"
+adapter = "speechmatics_realtime"
+model = "linden-1"
+api_key_env = "SPEECHMATICS_API_KEY"
+cache_generation = "realtime-2026-10-16-a"
+
+[models."linden-1-realtime".connection]
+endpoint = "wss://us.rt.speechmatics.com/v2/agent"
+sample_rate_hz = 16000
+
+# Fields of StartRecognition.transcription_config (the adapter adds `model`).
+[models."linden-1-realtime".request]
+language = "en"
+enable_partials = true
+
+[models."linden-1-realtime".request.transcript_filtering_config]
+remove_disfluencies = false
+
+# Azure AI Speech real-time speech to text (classic service, not MAI). There is no model
+# parameter: the service uses its current en-US base model; the label only names the service.
+[models."azure-stt-realtime"]
+provider = "microsoft"
+adapter = "azure_speech_realtime"
+model = "azure-stt"
+api_key_env = "AZURE_SPEECH_API_KEY"
+cache_generation = "realtime-2026-10-16-a"
+
+[models."azure-stt-realtime".connection]
+endpoint_env = "AZURE_SPEECH_ENDPOINT"
+sample_rate_hz = 16000
+
+# PushAudioInputStream.commit (Speech SDK 1.52, preview) needs setfeature=forcecommit. Raw turns
+# profanity masking off; there is no switch for disfluency removal.
+[models."azure-stt-realtime".request]
+language = "en-US"
+profanity = "Raw"
+setfeature = "forcecommit"
