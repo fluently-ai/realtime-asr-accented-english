@@ -631,3 +631,22 @@ sample_rate_hz = 16000
 language = "en-US"
 profanity = "Raw"
 setfeature = "forcecommit"
+
+# OpenAI's streaming Whisper for realtime transcription sessions; same adapter as
+# gpt-live-transcribe, but this model takes the singular `language` field. The delay level is
+# the server default.
+[models."gpt-realtime-whisper"]
+provider = "openai"
+adapter = "openai_realtime"
+model = "gpt-realtime-whisper"
+api_key_env = "OPENAI_API_KEY"
+cache_generation = "realtime-2026-10-16-a"
+
+[models."gpt-realtime-whisper".connection]
+endpoint = "wss://api.openai.com/v1/realtime?intent=transcription"
+# Realtime PCM input is 24 kHz only.
+sample_rate_hz = 24000
+
+# Fields of the session's audio.input.transcription object.
+[models."gpt-realtime-whisper".request]
+language = "en"

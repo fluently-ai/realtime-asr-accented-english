@@ -1,14 +1,14 @@
 # Real-Time Speech Recognition on Accented English: inference code
 
 The code that produced every transcript in our benchmark of real-time speech recognition on
-accented English: 16 offline profiles (file APIs and two open models) and 19 real-time profiles
+accented English: 16 offline profiles (file APIs and two open models) and 20 real-time profiles
 (streaming APIs). Every model ID and request option is pinned in
 [`inference/models.toml`](inference/models.toml). The benchmark audio and transcripts are not
 part of this repository.
 
 ```text
 inference/
-├── models.toml            # all 35 profiles: model IDs, endpoints, request options
+├── models.toml            # all 36 profiles: model IDs, endpoints, request options
 ├── run.py                 # offline runner (file APIs)
 ├── providers.py           # offline adapters, one per API
 ├── run_transformers.py    # offline runner for the open models (Parakeet, Qwen3-ASR)
@@ -95,7 +95,8 @@ uv run --script inference/run_realtime.py \
 ```
 
 - **Audio.** `ffmpeg` decodes each clip to mono 16-bit PCM at the profile's rate (16 kHz;
-  24 kHz for `gpt-live-transcribe` and `muse-voice-transcribe-1.0-realtime`). The runner sends
+  24 kHz for `gpt-live-transcribe`, `gpt-realtime-whisper` and
+  `muse-voice-transcribe-1.0-realtime`). The runner sends
   100 ms chunks at 1x speed: a chunk goes out once its last sample would have been spoken.
 - **Endpoint.** Right after the chunk that completes `speech_end_s`, the runner sends the
   provider's endpoint (finalize) request, then keeps streaming the rest of the clip and then
@@ -135,6 +136,7 @@ Endpoint and close messages per profile (see `realtime_providers.py`):
 | `flux-general-en-realtime` | `ForceEndTurn` (`eot_threshold = 1.0`: Flux's own end-of-turn is off) | `CloseStream` |
 | `linden-1-realtime` | `ForceEndOfUtterance` at the audio sent so far (external turn detection) | `EndOfStream` |
 | `azure-stt-realtime` | `PushAudioInputStream.commit()` (Speech SDK, `setfeature=forcecommit`) | close the push stream |
+| `gpt-realtime-whisper` | `input_audio_buffer.commit` (no server VAD) | close socket |
 
 Concurrent sessions per profile in our run (all 15 profiles streamed at once from one 16-vCPU
 cloud machine in the US; the client's scheduling delay stayed under 5 ms at p99):
@@ -147,9 +149,9 @@ cloud machine in the US; the client's scheduling delay stayed under 5 ms at p99)
 | 16–18 | `ink-2-realtime`, `gemini-3.5-transcribe-live`, `nemotron-3-asr-streaming-realtime`, `resonant-1-realtime` (18) |
 | 8–10 | `stt-rt-v5` (10), `voxtral-mini-transcribe-realtime-2602`, `chirp_3-realtime` |
 
-Four profiles were added later and streamed together from a second 16-vCPU cloud machine in the
-US: `flux-general-en-realtime` (48 sessions), `azure-stt-realtime` (32),
-`universal-3-6-pro-realtime` (24, 90 new sessions per minute) and `linden-1-realtime`. On that
+Five profiles were added later and streamed together from a second 16-vCPU cloud machine in the
+US: `flux-general-en-realtime` (48 sessions), `linden-1-realtime` (40), `azure-stt-realtime` (32),
+`gpt-realtime-whisper` (32) and `universal-3-6-pro-realtime` (24, 90 new sessions per minute). On that
 machine, three earlier profiles rerun on 300 clips matched the first run within 0.1 WER points and
 25 ms of median time to final.
 
