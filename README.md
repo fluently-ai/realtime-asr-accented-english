@@ -1,7 +1,7 @@
 # Real-Time Speech Recognition on Accented English: inference code
 
 The code that produced every transcript in our benchmark of real-time speech recognition on
-accented English: 16 offline profiles (file APIs and two open models) and 20 real-time profiles
+accented English: 16 offline profiles (file APIs and two open models) and 22 real-time profiles
 (streaming APIs). Every model ID and request option is pinned in
 [`inference/models.toml`](inference/models.toml). Results and methodology are in the
 [report](https://getfluently.app/research/asr). The benchmark audio and transcripts, text
@@ -9,7 +9,7 @@ normalization and WER scoring are not part of this repository.
 
 ```text
 inference/
-├── models.toml            # all 36 profiles: model IDs, endpoints, request options
+├── models.toml            # all 38 profiles: model IDs, endpoints, request options
 ├── run.py                 # offline runner (file APIs)
 ├── providers.py           # offline adapters, one per API
 ├── run_transformers.py    # offline runner for the open models (Parakeet, Qwen3-ASR)
@@ -149,6 +149,7 @@ Endpoint and close messages per profile (see `realtime_providers.py`):
 | `linden-1-realtime` | `ForceEndOfUtterance` at the audio sent so far (external turn detection) | `EndOfStream` |
 | `azure-stt-realtime` | `PushAudioInputStream.commit()` (Speech SDK, `setfeature=forcecommit`) | close the push stream |
 | `gpt-realtime-whisper` | `input_audio_buffer.commit` (no server VAD) | close socket |
+| `nari-qwen3-asr-realtime`, `nari-qwen3-asr-fast-realtime` | `input_audio_buffer.commit` (no turn detection) | close socket |
 
 Concurrent sessions per profile in our run (all 15 profiles streamed at once from one 16-vCPU
 cloud machine in the US):
@@ -166,6 +167,13 @@ US: `flux-general-en-realtime` (48 sessions), `linden-1-realtime` (40), `azure-s
 `gpt-realtime-whisper` (32) and `universal-3-6-pro-realtime` (24, 90 new sessions per minute). On that
 machine, three earlier profiles rerun on 300 clips matched the first run within 0.1 WER points and
 25 ms of median time to final.
+
+The two Nari Labs profiles (`nari-qwen3-asr-realtime`, `nari-qwen3-asr-fast-realtime`) were
+streamed last from a third, 2-vCPU cloud machine in the US with 10 sessions each (Nari allows 20
+connections per account); the first 838 clips of `nari-qwen3-asr-fast-realtime` ran with 2
+sessions. The same three-profile control on that machine matched the first run within 0.12 WER
+points; median time to final was 3 and 6 ms higher, and 47 ms lower for
+`universal-3-5-pro-realtime`.
 
 ## Output
 

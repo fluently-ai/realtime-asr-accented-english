@@ -937,6 +937,42 @@ async def _azure_speech(config, key, stream: Stream) -> None:
         )
 
 
+async def _nari(config, key, stream: Stream) -> None:
+    async with websockets.connect(
+        config.connection["endpoint"],
+        additional_headers={"Authorization": f"Bearer {key}"},
+    ) as ws:
+        session = {"model": config.model, **config.request}
+        await ws.send(json.dumps({"type": "session.configure", "session": session}))
+        while (event := json.loads(await ws.recv()))["type"] != "session.configured":
+            if event["type"] == "error":
+                raise RuntimeError(f"Nari error: {event.get('error')}")
+
+        def handle(message):
+            data = json.loads(message)
+            kind = data.get("type")
+            if kind == "error":
+                raise RuntimeError(f"Nari error: {data.get('error')}")
+            # Each partial is the whole current hypothesis of its utterance.
+            if kind == "transcript.partial":
+                stream.partial(data["transcript"])
+            elif kind == "transcript.completed":
+                stream.final(data["transcript"])
+
+        def audio(chunk):
+            data = base64.b64encode(chunk).decode("ascii")
+            return ws.send(json.dumps({"type": "input_audio_buffer.append", "audio": data}))
+
+        # Manual commit (no turn_detection): the endpoint's commit finalizes the utterance.
+        await drive(
+            ws,
+            stream,
+            audio=audio,
+            handle=handle,
+            endpoint=lambda: ws.send(json.dumps({"type": "input_audio_buffer.commit"})),
+        )
+
+
 ADAPTERS: dict[str, Callable[..., Awaitable[None]]] = {
     "deepgram_realtime": _deepgram,
     "elevenlabs_realtime": _elevenlabs,
@@ -956,4 +992,5 @@ ADAPTERS: dict[str, Callable[..., Awaitable[None]]] = {
     "deepgram_flux_realtime": _deepgram_flux,
     "speechmatics_realtime": _speechmatics,
     "azure_speech_realtime": _azure_speech,
+    "nari_realtime": _nari,
 }

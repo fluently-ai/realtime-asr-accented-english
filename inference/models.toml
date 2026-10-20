@@ -649,3 +649,33 @@ sample_rate_hz = 24000
 # Fields of the session's audio.input.transcription object.
 [models."gpt-realtime-whisper".request]
 language = "en"
+
+# Qwen3-ASR 1.7B served for streaming by Nari Labs; Standard and Fast differ in serving
+# latency and price. Manual commit (no turn_detection): the endpoint's commit finalizes.
+[models."nari-qwen3-asr-realtime"]
+provider = "nari"
+adapter = "nari_realtime"
+model = "qwen3-asr"
+api_key_env = "NARILABS_API_KEY"
+cache_generation = "realtime-2026-10-19-a"
+
+[models."nari-qwen3-asr-realtime".connection]
+endpoint = "wss://api.narilabs.com/v1/realtime?intent=transcription"
+sample_rate_hz = 16000
+
+[models."nari-qwen3-asr-realtime".request]
+language = "en"
+
+[models."nari-qwen3-asr-fast-realtime"]
+provider = "nari"
+adapter = "nari_realtime"
+model = "qwen3-asr-fast"
+api_key_env = "NARILABS_API_KEY"
+cache_generation = "realtime-2026-10-19-a"
+
+[models."nari-qwen3-asr-fast-realtime".connection]
+endpoint = "wss://api.narilabs.com/v1/realtime?intent=transcription"
+sample_rate_hz = 16000
+
+[models."nari-qwen3-asr-fast-realtime".request]
+language = "en"
